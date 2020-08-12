@@ -28,6 +28,7 @@ class FlutterBugly {
     bool canShowApkInfo = true, //设置是否显示弹窗中的apk信息
     int initDelay = 0, //延迟初始化,单位秒
     int upgradeCheckPeriod = 60, //升级检查周期设置,单位秒
+    bool overrideUpdate = false, //跳过SDK的升级处理，自己处理UpgradeInfo。为true时才能取到UpgradeInfo
   }) async {
     assert((Platform.isAndroid && androidAppId != null) ||
         (Platform.isIOS && iOSAppId != null));
@@ -42,6 +43,7 @@ class FlutterBugly {
       "canShowApkInfo": canShowApkInfo,
       "initDelay": initDelay,
       "upgradeCheckPeriod": upgradeCheckPeriod,
+      "overrideUpdate": overrideUpdate,
     };
     final String result = await _channel.invokeMethod('initBugly', map);
     Map resultMap = json.decode(result);

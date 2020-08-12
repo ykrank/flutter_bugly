@@ -30,6 +30,7 @@ public class FlutterBuglyPlugin implements MethodCallHandler {
     private boolean isResultSubmitted = false;
     private UpgradeInfo upgradeInfo;
     private static UpgradeCallback callback;
+    private static boolean overrideUpdate = false;
 
 
     public FlutterBuglyPlugin(Activity activity) {
@@ -52,7 +53,7 @@ public class FlutterBuglyPlugin implements MethodCallHandler {
         if (call.method.equals("initBugly")) {
             if (call.hasArgument("appId")) {
                 if (call.hasArgument("autoInit")) {
-                    Beta.autoInit = false;
+                    Beta.autoInit = call.argument("autoInit");
                 }
                 if (call.hasArgument("enableHotfix")) {
                     Beta.enableHotfix = call.argument("enableHotfix");
@@ -81,15 +82,24 @@ public class FlutterBuglyPlugin implements MethodCallHandler {
                     Beta.canShowApkInfo = call.argument("canShowApkInfo");
                 }
                 Beta.canShowUpgradeActs.add(activity.getClass());
-                /*在application中初始化时设置监听，监听策略的收取*/
-                Beta.upgradeListener = new UpgradeListener() {
-                    @Override
-                    public void onUpgrade(int ret, UpgradeInfo strategy, boolean isManual, boolean isSilence) {
-                        if (callback != null) {
-                            callback.onUpgrade(strategy);
+                if (call.hasArgument("overrideUpdate")) {
+                    overrideUpdate = call.argument("overrideUpdate");
+                } else {
+                    overrideUpdate = false;
+                }
+                if (overrideUpdate) {
+                    /*在application中初始化时设置监听，监听策略的收取*/
+                    Beta.upgradeListener = new UpgradeListener() {
+                        @Override
+                        public void onUpgrade(int ret, UpgradeInfo strategy, boolean isManual, boolean isSilence) {
+                            if (callback != null) {
+                                callback.onUpgrade(strategy);
+                            }
                         }
-                    }
-                };
+                    };
+                } else {
+                    Beta.upgradeListener = null;
+                }
                 String appId = call.argument("appId").toString();
                 Bugly.init(activity.getApplicationContext(), appId, BuildConfig.DEBUG);
                 if (call.hasArgument("channel")) {
@@ -141,20 +151,25 @@ public class FlutterBuglyPlugin implements MethodCallHandler {
                 useCache = call.argument("useCache");
             }
             final boolean finalUseCache = useCache;
-            callback = new UpgradeCallback() {
-                @Override
-                public void onUpgrade(UpgradeInfo strategy) {
-                    if (finalUseCache) {
-                        if (strategy != null) {
-                            upgradeInfo = strategy;
+            if (overrideUpdate) {
+                callback = new UpgradeCallback() {
+                    @Override
+                    public void onUpgrade(UpgradeInfo strategy) {
+                        if (finalUseCache) {
+                            if (strategy != null) {
+                                upgradeInfo = strategy;
+                            }
+                            result(upgradeInfo);
+                        } else {
+                            result(strategy);
                         }
-                        result(upgradeInfo);
-                    } else {
-                        result(strategy);
                     }
-                }
-            };
+                };
+            }
             Beta.checkUpgrade(isManual, isSilence);
+            if (!overrideUpdate) {
+                result(null);
+            }
         } else if (call.method.equals("getUpgradeInfo")) {
             UpgradeInfo strategy = Beta.getUpgradeInfo();
             result(strategy);
